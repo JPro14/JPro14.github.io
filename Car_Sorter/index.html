@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <style>
+    body { 
+      margin:0;
+      position:fixed;
+      top:0;
+      right:0;
+      bottom:0;
+      left:0;
+    	font-family: sans-serif;
+    }
+    .selected {
+      fill: none;
+    }
+    
+    .button {
+      min-width: 130px;
+      padding: 4px 5px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 13px;
+      border: 1px solid #e0e0e0;
+      text-decoration: none;
+    }
+
+    .button.active {
+      background: #000;
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="toolbar">
+      <button id="all" class="button active">All</button>
+      <button id="MPG" class="button">By MPG</button>
+      <button id="Year" class="button">By Year</button>
+      <button id="Origin" class="button">By Orignin</button>
+      <button id="Cylinders" class="button">By Number of Cylinders</button>
+    </div>
+  <script>
+
+    //The original version of this code can be found at:
+    //https://bl.ocks.org/SpaceActuary/d6b5ca8e5fb17842d652d0de21e88a05
+    //
+    //Edited by: Jared Prohaska (Z1871561)
+
+    console.clear()
+    var w = 1800, h = 1000; //Demensions for svg object
+    
+    var radius = 5;     //Preset size of circles
+    var centerScale = d3.scalePoint().padding(1).range([0, w]); //Used to center values/text
+    var forceStrength = 0.3;  //Strength between circles
+   
+    //Appends svg object to the body element of the html
+    var svg = d3.select("body").append("svg")
+      .attr("width", w)
+      .attr("height", h)
+
+    //Determins animation physics  
+    var simulation = d3.forceSimulation()
+            .force("collide",d3.forceCollide( function(d){
+              	return d.r + 8 }).iterations(16) 
+            )
+            .force("charge", d3.forceManyBody())
+            .force("y", d3.forceY().y(h / 2))
+            .force("x", d3.forceX().x(w / 2))
+    
+    //Data set is accessed and given additional elements         
+    d3.csv("cars_dataset.csv", function(data){
+      
+      data.forEach(function(d){
+        d.r = radius;             //Used to set the radius of each circle
+        d.x = w / 2;              //Used to determin x position
+        d.y = h / 2;              //Used to determin y position
+      })
+      
+      console.table(data);        //Prints data in table to console
+           
+      
+      //Applys data to circle elements
+      var circles = svg.selectAll("circle") 
+      	.data(data, function(d){ return d ;});
+       
+        
+      //Creates the initial circles
+      var circlesEnter = circles.enter().append("circle")
+      	.attr("r", function(d, i){ return d.r; })
+        .attr("cx", function(d, i){ return 175 + 25 * i + 2 * i ** 2; })
+				.attr("cy", function(d, i){ return 250; })
+      	.style("stroke-width", 10)
+      	.style("pointer-events", "all")
+      	.call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended)
+                );
+
+      //Creates titles for each circle to show each cars detailed information          
+      circlesEnter.append("svg:title").text(function (d) { return '\nModel: ' + d.Model +
+                                                              '\nMPG: ' + d.MPG +
+                                                              '\nNumber of Cylinders: ' + d.Cylinders +
+                                                              '\nDisplacement: ' + d.Displacement +
+                                                              '\nHorsepower: ' + d.Horsepower +
+                                                              '\nWeight: ' + d.Weight +
+                                                              '\nAcceleration: ' + d.Acceleration +
+                                                              '\nYear: 19' + d.Year +
+                                                              '\nOrigin: ' + d.Origin});
+
+    
+      circles = circles.merge(circlesEnter)
+      
+      //Used for updating positioning of circles
+      function ticked() {
+        //console.log("tick")
+        //console.log(data.map(function(d){ return d.x; }));
+        circles
+            .attr("cx", function(d){ return d.x; })
+            .attr("cy", function(d){ return d.y; })
+      }   
+
+      //Used for animation
+      simulation
+            .nodes(data)
+            .on("tick", ticked);
+      
+      //Handles dragging circles      
+      function dragstarted(d,i) {
+        //console.log("dragstarted " + i)
+        if (!d3.event.active) simulation.alpha(1).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+
+      //Handles dragging circles
+      function dragged(d,i) {
+        //console.log("dragged " + i)
+        d.fx = d3.event.x;
+        d.fy = d3.event.y;
+      }
+
+      //Handles draged circles
+      function dragended(d,i) {
+        //console.log("dragended " + i)
+        if (!d3.event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+        var me = d3.select(this)
+        console.log(me.classed("selected"))
+        me.classed("selected", !me.classed("selected"))
+        
+        d3.selectAll("circle.selected")
+          .style("fill", "#d62728")
+      	
+      } 
+      
+      //Colors circles based on their clusters
+      function changeColors(byVar){
+
+        if(byVar == "MPG")    //MPG Handler
+        {
+          d3.selectAll("circle").attr("fill", function(d) {
+            if(d[byVar] > 5 && d[byVar] < 20)
+              return "rgb(255,0,0)"
+            else if(d[byVar] >= 20 && d[byVar] < 30)
+              return "rgb(0,255,0)"
+            else if(d[byVar] >= 30)
+              return "rgb(0,0,255)"
+          })
+        }
+        else if(byVar == "Year")  //Year Handler
+        {
+          d3.selectAll("circle").attr("fill", function(d) {
+            if(d.Year == 70)
+              return "rgb(255,0,0)"
+            else if(d.Year == 71)
+              return "rgb(0,255,0)"
+            else if(d.Year == 72)
+              return "rgb(0,0,255)"
+            else if(d.Year == 73)
+              return "rgb(255,255,0)"
+            else if(d.Year == 74)
+              return "rgb(255,0,255)"
+            else if(d.Year == 75)
+              return "rgb(0,255,255)"
+            else if(d.Year == 76)
+              return "rgb(128,0,255)"
+            else if(d.Year == 77)
+              return "rgb(255,128,0)"
+            else if(d.Year == 78)
+              return "rgb(128,0,128)"
+            else if(d.Year == 79)
+              return "rgb(0,0,0)"
+            else if(d.Year == 80)
+              return "rgb(102,204,0)"
+            else if(d.Year == 81)
+              return "rgb(224,224,224)"
+            else if(d.Year == 82)
+              return "rgb(0,128,255)"
+          })
+        }
+        else if(byVar == "Origin")    //Origin Handler
+        {
+          
+          d3.selectAll("circle").attr("fill", function(d) {
+            if(d.Origin == "US")
+            {
+              return "rgb(255,0,0)"
+            }
+            else if(d.Origin == "Japan")
+              return "rgb(0,255,0)"
+            else if(d.Origin == "Europe")
+              return "rgb(0,0,255)"
+          })
+        }
+        else if(byVar == "Cylinders")   //Cylinder Handler
+        {
+          d3.selectAll("circle").attr("fill", function(d) {
+            if(d.Cylinders == 4)
+              return "rgb(255,0,0)"
+            else if(d.Cylinders == 6)
+              return "rgb(0,255,0)"
+            else if(d.Cylinders == 8)
+              return "rgb(0,0,255)"
+            else if(d.Cylinders == 3)
+              return "rgb(255,0,255)"
+            else if(d.Cylinders == 5)
+              return "rgb(128,128,128)"  
+          })
+        }
+      }
+
+
+
+      //Used to split circles into their corresponding clusters
+      function splitBubbles(byVar) {
+        
+        //Colors each cluster
+        changeColors(byVar);
+
+        //Gets the cluster groups based on the column used
+        centerScale.domain(data.map(function(d){ 
+          
+          if(byVar == "MPG")
+          {
+            if(d[byVar] > 5 && d[byVar] < 20)
+            {
+              return "(5-20)";
+            }
+            else if(d[byVar] >= 20 && d[byVar] < 30)
+            {
+              return "(20-30)";
+            }
+            else if(d[byVar] >= 30)
+            {
+              return "(30+)"
+            }
+          }
+          else
+          {
+          return d[byVar];
+          }
+        }));
+        
+        //Handles showing titles
+        if(byVar == "all"){
+          hideTitles()
+        } else {
+	        showTitles(byVar, centerScale);
+        }
+        
+        //Aligns each circles new centers
+        // @v4 Reset the 'x' force to draw the bubbles to their year centers
+        simulation.force('x', d3.forceX().strength(forceStrength).x(function(d){ 
+        	
+          if(byVar == "MPG")
+          {
+            if(d[byVar] > 5 && d[byVar] < 20)
+            {
+              return centerScale("(5-20)");
+            }
+            else if(d[byVar] >= 20 && d[byVar] < 30)
+            {
+              return centerScale("(20-30)");
+            }
+            else if(d[byVar] >= 30)
+            {
+              return centerScale("(30+)");
+            }
+          }
+          else
+          {
+              return centerScale(d[byVar]);
+          }
+        }));
+
+        // @v4 We can reset the alpha value and restart the simulation
+        simulation.alpha(2).restart();
+      }
+      
+      //Used to hide titles 
+      function hideTitles() {
+        svg.selectAll('.title').remove();
+      }
+
+      //Used to display cluster titles
+      function showTitles(byVar, scale) {
+      
+        //Assigns data to new title elements
+       	var titles = svg.selectAll('.title')
+          .data(scale.domain());
+        
+        //Creates new title elements 
+        titles.enter().append('text')
+          	.attr('class', 'title')
+        	.merge(titles)
+            .attr('x', function (d) { return scale(d); })
+            .attr('y', 40)
+            .attr('text-anchor', 'middle')
+            .text(function (d) { return byVar + ' ' + d; });
+        
+        titles.exit().remove() 
+      }
+      
+      //Used to create buttons for each column
+      function setupButtons() {
+        d3.selectAll('.button')
+          .on('click', function () {
+          	
+            // Remove active class from all buttons
+            d3.selectAll('.button').classed('active', false);
+            // Find the button just clicked
+            var button = d3.select(this);
+
+            // Set it as the active button
+            button.classed('active', true);
+
+            // Get the id of the button
+            var buttonId = button.attr('id');
+
+	          console.log(buttonId)
+            // Toggle the cluster chart based on
+            // the currently clicked button.
+
+
+
+            splitBubbles(buttonId);
+          });
+      }
+      
+      setupButtons()
+      
+    })
+    
+  </script>
+</body></html>
