@@ -32,6 +32,9 @@
 
 .pad {
     padding-top: 100px;
+    padding-left: 25px;
+    padding-right: 25px;
+    text-align: center;
 }
 
 body, h1, h2, h3, p {
